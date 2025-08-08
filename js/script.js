@@ -30,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const today = getTodayDate();
         let savedState = JSON.parse(localStorage.getItem('habitsState')) || {};
 
-        // If saved state is for a different day, reset it
         if (savedState.date !== today) {
             savedState = {
                 date: today,
@@ -53,12 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentHabitsState = loadHabits();
 
-    // Save habits state to local storage
     const saveHabits = () => {
         localStorage.setItem('habitsState', JSON.stringify(currentHabitsState));
     };
 
-    // Update progress circle and text
     const updateProgress = () => {
         let completedCount = 0;
         habits.forEach(habit => {
@@ -73,14 +70,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const percentage = (completedCount / totalHabits) * 100;
-        const circumference = 2 * Math.PI * 40; // 2 * PI * radius (radius is 40)
+        const circumference = 2 * Math.PI * 40;
         const offset = circumference - (percentage / 100) * circumference;
 
         progressCircle.style.strokeDashoffset = offset;
         progressText.textContent = `${completedCount}/${totalHabits}`;
-        progressCircle.style.stroke = completedCount === totalHabits ? '#10B981' : '#22C55E'; // Green-500 or Green-600
+        progressCircle.style.stroke = completedCount === totalHabits ? '#10B981' : '#22C55E';
 
-        // Show daily completion message if all habits are done
         if (completedCount === totalHabits) {
             dailyCompletionMessage.classList.remove('hidden');
         } else {
@@ -88,75 +84,69 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Render habits and attach event listeners
-    habits.forEach(habit => {
-        const habitElement = document.getElementById(habit.id); // Get the main element for the habit
-        if (!habitElement) { // Skip if element not found, useful for meal-buttons which don't have direct ID
-            return;
-        }
-
-        if (habit.type === 'checkbox') {
-            const checkbox = habitElement; // The input itself has the ID
-            if (checkbox) {
-                checkbox.checked = currentHabitsState.completed[habit.id];
-                checkbox.addEventListener('change', (event) => {
-                    currentHabitsState.completed[habit.id] = event.target.checked;
-                    saveHabits();
-                    updateProgress();
-                });
-            }
-        } else if (habit.type === 'button') {
-            // Find the button within the parent habit-item div
-            const button = document.querySelector(`#habits-list .habit-item:has(#${habit.id}) .action-button`);
-            if (button) {
-                if (currentHabitsState.completed[habit.id]) {
-                    button.classList.add('completed');
-                    button.textContent = 'Selesai ✔';
+    // Corrected way to select and attach event listeners to buttons
+    const bindEventListeners = () => {
+        habits.forEach(habit => {
+            if (habit.type === 'checkbox') {
+                const checkbox = document.getElementById(habit.id);
+                if (checkbox) {
+                    checkbox.checked = currentHabitsState.completed[habit.id];
+                    checkbox.addEventListener('change', (event) => {
+                        currentHabitsState.completed[habit.id] = event.target.checked;
+                        saveHabits();
+                        updateProgress();
+                    });
                 }
-                button.addEventListener('click', () => {
-                    if (!currentHabitsState.completed[habit.id]) { // Prevent re-clicking
-                        currentHabitsState.completed[habit.id] = true;
+            } else if (habit.type === 'button') {
+                const button = document.querySelector(`[data-habit-id="${habit.id}"]`);
+                if (button) {
+                    if (currentHabitsState.completed[habit.id]) {
                         button.classList.add('completed');
                         button.textContent = 'Selesai ✔';
-                        saveHabits();
-                        updateProgress();
                     }
+                    button.addEventListener('click', () => {
+                        if (!currentHabitsState.completed[habit.id]) {
+                            currentHabitsState.completed[habit.id] = true;
+                            button.classList.add('completed');
+                            button.textContent = 'Selesai ✔';
+                            saveHabits();
+                            updateProgress();
+                        }
+                    });
+                }
+            } else if (habit.type === 'meal-buttons') {
+                const mealButtons = document.querySelectorAll(`[data-habit-id="${habit.id}"]`);
+                mealButtons.forEach(button => {
+                    const meal = button.dataset.meal;
+                    if (currentHabitsState.completed[habit.id] && currentHabitsState.completed[habit.id][meal]) {
+                        button.classList.add('completed');
+                    }
+                    button.addEventListener('click', () => {
+                        if (!currentHabitsState.completed[habit.id][meal]) {
+                            currentHabitsState.completed[habit.id][meal] = true;
+                            button.classList.add('completed');
+                            saveHabits();
+                            updateProgress();
+                        }
+                    });
                 });
             }
-        } else if (habit.type === 'meal-buttons') {
-            // Find the meal buttons within the parent habit-item div
-            const mealButtons = document.querySelectorAll(`#habits-list .habit-item:has(#${habit.id}) .meal-button`);
-            mealButtons.forEach(button => {
-                const meal = button.dataset.meal;
-                if (currentHabitsState.completed[habit.id] && currentHabitsState.completed[habit.id][meal]) {
-                    button.classList.add('completed');
-                }
-                button.addEventListener('click', () => {
-                    if (!currentHabitsState.completed[habit.id][meal]) { // Prevent re-clicking
-                        currentHabitsState.completed[habit.id][meal] = true;
-                        button.classList.add('completed');
-                        saveHabits();
-                        updateProgress();
-                    }
-                });
-            });
-        }
-    });
+        });
+    };
 
-    // --- User Name Logic ---
     const checkAndPromptName = () => {
-        let userName = localStorage.getItem('userName');
+        const userName = localStorage.getItem('userName');
         if (userName) {
             userNameSpan.textContent = userName;
-            nameModal.classList.add('hidden'); // Ensure modal is hidden
-            nameModalContent.classList.remove('show'); // Ensure modal content is hidden
+            nameModal.classList.add('hidden');
+            nameModalContent.classList.remove('show');
         } else {
-            userNameSpan.textContent = 'Teman Hebat'; // Default text
-            nameModal.classList.remove('hidden'); // Show modal
+            nameModal.classList.remove('hidden');
             setTimeout(() => {
-                nameModalContent.classList.add('show'); // Trigger transition
-            }, 10); // Small delay for transition to work
-            nameInput.focus(); // Focus on input field
+                nameModal.classList.add('show');
+                nameModalContent.classList.add('show');
+            }, 10);
+            nameInput.focus();
         }
     };
 
@@ -165,26 +155,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (inputName) {
             localStorage.setItem('userName', inputName);
             userNameSpan.textContent = inputName;
-            nameModalContent.classList.remove('show'); // Hide content with transition
+            nameModal.classList.remove('show');
+            nameModalContent.classList.remove('show');
             setTimeout(() => {
-                nameModal.classList.add('hidden'); // Hide modal wrapper after transition
-            }, 300); // Match transition duration
+                nameModal.classList.add('hidden');
+            }, 300);
         } else {
-            // Optionally, show a message to the user that name cannot be empty
-            console.log("Nama tidak boleh kosong!");
             nameInput.placeholder = "Nama tidak boleh kosong!";
-            nameInput.classList.add('border-red-500'); // Highlight input as error
+            nameInput.classList.add('border-red-500');
         }
     });
 
     nameInput.addEventListener('input', () => {
-        // Remove error styling when user starts typing
         nameInput.classList.remove('border-red-500');
         nameInput.placeholder = "Masukkan namamu di sini...";
     });
 
-
     // Initial calls on load
-    checkAndPromptName(); // Check for name and prompt if needed
-    updateProgress(); // Initial progress update
+    bindEventListeners();
+    checkAndPromptName();
+    updateProgress();
 });
