@@ -1,1 +1,73 @@
+/* css/style.css */
 
+/* Custom styles for the checkbox label */
+.checkbox-label {
+    /* Base styles for the custom checkbox */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem; /* 32px */
+    height: 2rem; /* 32px */
+    border-width: 2px;
+    border-radius: 9999px; /* Fully rounded */
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.checkbox-label i {
+    /* Icon inside the checkbox */
+    font-size: 1.25rem; /* 20px */
+    color: white;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* Styles when the checkbox is checked (using peer-checked) */
+.peer:checked + .checkbox-label {
+    background-color: #10B981; /* green-500 */
+    border-color: #10B981; /* green-500 */
+}
+
+.peer:checked + .checkbox-label i {
+    opacity: 1;
+}
+
+/* Styles for action buttons (Selesai) */
+.action-button, .meal-button {
+    padding: 0.5rem 1rem; /* py-2 px-4 */
+    border-radius: 9999px; /* rounded-full */
+    font-weight: 700; /* font-bold */
+    color: white;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.action-button.completed, .meal-button.completed {
+    background-color: #10B981; /* green-500 */
+    pointer-events: none; /* Disable click after completion */
+}
+
+/* Progress Circle Styling */
+.progress-ring__circle {
+    transition: stroke-dashoffset 0.5s ease-in-out;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .habit-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .habit-item > div:first-child {
+        margin-bottom: 0.5rem;
+    }
+    .habit-input {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end; /* Align buttons/checkbox to the right on mobile */
+    }
+    .meal-button {
+        flex-grow: 1; /* Make meal buttons fill available space */
+    }
+}
