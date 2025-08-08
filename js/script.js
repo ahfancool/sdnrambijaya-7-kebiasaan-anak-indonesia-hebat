@@ -1,4 +1,7 @@
+// js/script.js
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Definisi kebiasaan dan tipenya
     const habits = [
         { id: 'bangun-pagi', type: 'checkbox' },
         { id: 'beribadah', type: 'checkbox' },
@@ -9,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'tidur-cepat', type: 'checkbox' }
     ];
 
+    // Elemen DOM utama
     const progressCircle = document.getElementById('progress-circle');
     const progressText = document.getElementById('progress-text');
     const totalHabits = habits.length;
@@ -19,17 +23,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveNameButton = document.getElementById('save-name-button');
     const dailyCompletionMessage = document.getElementById('daily-completion-message');
 
-    // Function to get today's date in YYYY-MM-DD format
+    // Target bulanan
+    const MONTHLY_TARGET_DAYS = 30;
+
+    // Fungsi untuk mendapatkan tanggal hari ini dalam format YYYY-MM-DD
     const getTodayDate = () => {
         const date = new Date();
         return date.toISOString().split('T')[0];
     };
 
-    // Load habits state from local storage
-    const loadHabits = () => {
-        const today = getTodayDate();
-        let savedState = JSON.parse(localStorage.getItem('habitsState')) || {};
+    // Fungsi untuk mendapatkan tanggal N hari yang lalu dalam format YYYY-MM-DD
+    const getDateNDaysAgo = (n) => {
+        const date = new Date();
+        date.setDate(date.getDate() - n);
+        return date.toISOString().split('T')[0];
+    };
 
+    // Memuat status kebiasaan harian dari local storage
+    const loadDailyHabits = () => {
+        const today = getTodayDate();
+        let savedState = JSON.parse(localStorage.getItem('dailyHabitState')) || {};
+
+        // Jika status yang tersimpan bukan untuk hari ini, reset kebiasaan harian
         if (savedState.date !== today) {
             savedState = {
                 date: today,
@@ -45,26 +60,69 @@ document.addEventListener('DOMContentLoaded', () => {
                     savedState.completed[habit.id] = false;
                 }
             });
-            localStorage.setItem('habitsState', JSON.stringify(savedState));
+            localStorage.setItem('dailyHabitState', JSON.stringify(savedState));
         }
         return savedState;
     };
 
-    let currentHabitsState = loadHabits();
+    // Memuat progres bulanan dari local storage
+    const loadMonthlyProgress = () => {
+        let monthlyProgress = JSON.parse(localStorage.getItem('monthlyProgress')) || {
+            startDate: getTodayDate(), // Tanggal mulai tantangan
+            completedDates: [] // Array tanggal di mana semua kebiasaan harian selesai
+        };
 
-    const saveHabits = () => {
-        localStorage.setItem('habitsState', JSON.stringify(currentHabitsState));
+        // Jika sudah 30 hari sejak startDate dan belum ada reset, atau jika bulan berganti
+        // Ini adalah logika untuk menentukan apakah tantangan 30 hari perlu direset
+        const today = new Date(getTodayDate());
+        const startDate = new Date(monthlyProgress.startDate);
+        const diffTime = Math.abs(today - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Jika sudah melewati 30 hari dari start date, dan belum ada redirect/reset
+        // Atau jika ada 30 hari yang selesai dalam periode 30 hari terakhir
+        if (monthlyProgress.completedDates.length >= MONTHLY_TARGET_DAYS) {
+            // Filter completedDates untuk 30 hari terakhir
+            const thirtyDaysAgo = getDateNDaysAgo(MONTHLY_TARGET_DAYS);
+            const recentCompletedDates = monthlyProgress.completedDates.filter(date => new Date(date) >= new Date(thirtyDaysAgo));
+            
+            // Jika ada 30 hari unik yang selesai dalam 30 hari terakhir, berarti target tercapai
+            const uniqueRecentCompletedDays = new Set(recentCompletedDates).size;
+
+            if (uniqueRecentCompletedDays >= MONTHLY_TARGET_DAYS) {
+                // Target 30 hari tercapai, arahkan ke halaman rekap
+                window.location.href = 'recap.html';
+                // Setelah redirect, data bulanan akan direset di halaman rekap saat "Mulai Tantangan Baru" diklik
+                return monthlyProgress; // Kembalikan progres saat ini, reset akan terjadi di recap.html
+            }
+        }
+        
+        return monthlyProgress;
     };
 
+    let currentDailyHabitState = loadDailyHabits();
+    let currentMonthlyProgress = loadMonthlyProgress();
+
+    // Menyimpan status kebiasaan harian ke local storage
+    const saveDailyHabits = () => {
+        localStorage.setItem('dailyHabitState', JSON.stringify(currentDailyHabitState));
+    };
+
+    // Menyimpan progres bulanan ke local storage
+    const saveMonthlyProgress = () => {
+        localStorage.setItem('monthlyProgress', JSON.stringify(currentMonthlyProgress));
+    };
+
+    // Memperbarui lingkaran progres dan teks
     const updateProgress = () => {
         let completedCount = 0;
         habits.forEach(habit => {
             if (habit.type === 'meal-buttons') {
-                const mealStatus = currentHabitsState.completed[habit.id];
+                const mealStatus = currentDailyHabitState.completed[habit.id];
                 if (mealStatus && Object.values(mealStatus).every(status => status)) {
                     completedCount++;
                 }
-            } else if (currentHabitsState.completed[habit.id]) {
+            } else if (currentDailyHabitState.completed[habit.id]) {
                 completedCount++;
             }
         });
@@ -75,65 +133,84 @@ document.addEventListener('DOMContentLoaded', () => {
 
         progressCircle.style.strokeDashoffset = offset;
         progressText.textContent = `${completedCount}/${totalHabits}`;
-        progressCircle.style.stroke = completedCount === totalHabits ? '#10B981' : '#22C55E';
+        progressCircle.style.stroke = completedCount === totalHabits ? '#10B981' : '#22C55E'; // Hijau jika semua selesai, hijau terang jika belum
 
+        // Tampilkan pesan selesai harian jika semua kebiasaan selesai
         if (completedCount === totalHabits) {
             dailyCompletionMessage.classList.remove('hidden');
+            // Jika semua kebiasaan harian selesai, catat tanggal ini ke progres bulanan
+            const today = getTodayDate();
+            if (!currentMonthlyProgress.completedDates.includes(today)) {
+                currentMonthlyProgress.completedDates.push(today);
+                saveMonthlyProgress();
+            }
+            
+            // Periksa apakah target 30 hari tercapai
+            const uniqueCompletedDays = new Set(currentMonthlyProgress.completedDates).size;
+            if (uniqueCompletedDays >= MONTHLY_TARGET_DAYS) {
+                window.location.href = 'recap.html'; // Arahkan ke halaman rekap
+                // Data akan direset di recap.html saat tombol "Mulai Tantangan Baru" diklik
+            }
+
         } else {
             dailyCompletionMessage.classList.add('hidden');
         }
     };
 
-    // Corrected way to select and attach event listeners to buttons
+    // Mengikat event listener ke tombol dan checkbox kebiasaan
     const bindEventListeners = () => {
         habits.forEach(habit => {
             if (habit.type === 'checkbox') {
                 const checkbox = document.getElementById(habit.id);
                 if (checkbox) {
-                    checkbox.checked = currentHabitsState.completed[habit.id];
+                    checkbox.checked = currentDailyHabitState.completed[habit.id];
                     checkbox.addEventListener('change', (event) => {
-                        currentHabitsState.completed[habit.id] = event.target.checked;
-                        saveHabits();
+                        currentDailyHabitState.completed[habit.id] = event.target.checked;
+                        saveDailyHabits();
                         updateProgress();
                     });
                 }
             } else if (habit.type === 'button') {
                 const button = document.querySelector(`[data-habit-id="${habit.id}"]`);
                 if (button) {
-                    if (currentHabitsState.completed[habit.id]) {
+                    if (currentDailyHabitState.completed[habit.id]) {
                         button.classList.add('completed');
                         button.textContent = 'Selesai ✔';
                     }
                     button.addEventListener('click', () => {
-                        if (!currentHabitsState.completed[habit.id]) {
-                            currentHabitsState.completed[habit.id] = true;
+                        if (!currentDailyHabitState.completed[habit.id]) { // Mencegah klik berulang
+                            currentDailyHabitState.completed[habit.id] = true;
                             button.classList.add('completed');
                             button.textContent = 'Selesai ✔';
-                            saveHabits();
+                            saveDailyHabits();
                             updateProgress();
                         }
                     });
                 }
             } else if (habit.type === 'meal-buttons') {
-                const mealButtons = document.querySelectorAll(`[data-habit-id="${habit.id}"]`);
-                mealButtons.forEach(button => {
-                    const meal = button.dataset.meal;
-                    if (currentHabitsState.completed[habit.id] && currentHabitsState.completed[habit.id][meal]) {
-                        button.classList.add('completed');
-                    }
-                    button.addEventListener('click', () => {
-                        if (!currentHabitsState.completed[habit.id][meal]) {
-                            currentHabitsState.completed[habit.id][meal] = true;
+                const mealButtonsContainer = document.querySelector(`[data-habit-id="${habit.id}"]`); // Container div
+                if (mealButtonsContainer) {
+                    const mealButtons = mealButtonsContainer.querySelectorAll('.meal-button');
+                    mealButtons.forEach(button => {
+                        const meal = button.dataset.meal;
+                        if (currentDailyHabitState.completed[habit.id] && currentDailyHabitState.completed[habit.id][meal]) {
                             button.classList.add('completed');
-                            saveHabits();
-                            updateProgress();
                         }
+                        button.addEventListener('click', () => {
+                            if (!currentDailyHabitState.completed[habit.id][meal]) { // Mencegah klik berulang
+                                currentDailyHabitState.completed[habit.id][meal] = true;
+                                button.classList.add('completed');
+                                saveDailyHabits();
+                                updateProgress();
+                            }
+                        });
                     });
-                });
+                }
             }
         });
     };
 
+    // --- Logika Nama Pengguna ---
     const checkAndPromptName = () => {
         const userName = localStorage.getItem('userName');
         if (userName) {
@@ -141,10 +218,11 @@ document.addEventListener('DOMContentLoaded', () => {
             nameModal.classList.add('hidden');
             nameModalContent.classList.remove('show');
         } else {
+            userNameSpan.textContent = 'Teman Hebat'; // Teks default jika belum ada nama
             nameModal.classList.remove('hidden');
             setTimeout(() => {
-                nameModal.classList.add('show');
-                nameModalContent.classList.add('show');
+                nameModal.classList.add('show'); // Menambahkan kelas 'show' untuk modal wrapper
+                nameModalContent.classList.add('show'); // Menambahkan kelas 'show' untuk konten modal
             }, 10);
             nameInput.focus();
         }
@@ -155,11 +233,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (inputName) {
             localStorage.setItem('userName', inputName);
             userNameSpan.textContent = inputName;
-            nameModal.classList.remove('show');
             nameModalContent.classList.remove('show');
             setTimeout(() => {
+                nameModal.classList.remove('show'); // Hapus kelas 'show' dari modal wrapper
                 nameModal.classList.add('hidden');
-            }, 300);
+            }, 300); // Sesuaikan dengan durasi transisi CSS
         } else {
             nameInput.placeholder = "Nama tidak boleh kosong!";
             nameInput.classList.add('border-red-500');
@@ -171,8 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
         nameInput.placeholder = "Masukkan namamu di sini...";
     });
 
-    // Initial calls on load
-    bindEventListeners();
-    checkAndPromptName();
-    updateProgress();
+    // Panggilan awal saat DOM selesai dimuat
+    bindEventListeners(); // Mengikat event listener ke kebiasaan
+    checkAndPromptName(); // Memeriksa dan meminta nama pengguna
+    updateProgress(); // Memperbarui progres awal
 });
