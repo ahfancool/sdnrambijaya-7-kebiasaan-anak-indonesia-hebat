@@ -1,6 +1,3 @@
-/* css/style.css */
-
-/* Custom styles for the checkbox label */
 .checkbox-label {
     /* Base styles for the custom checkbox */
     display: flex;
@@ -52,6 +49,17 @@
     transform: rotate(-90deg);
     transform-origin: 50% 50%;
 }
+
+/* Modal specific styles */
+#name-modal.show {
+    display: flex;
+}
+
+#name-modal-content.show {
+    opacity: 1;
+    transform: scale(1);
+}
+
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
